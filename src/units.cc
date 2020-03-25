@@ -32,13 +32,13 @@ struct make_lambda {
 };
 
 // Unit definitions
-typedef mpl::vector_c<int, 1, 0, 0, 0, 0, 0, 0> uM;
-typedef mpl::vector_c<int, 0, 1, 0, 0, 0, 0, 0> uKg;
-typedef mpl::vector_c<int, 0, 0, 1, 0, 0, 0, 0> uS;
-typedef mpl::vector_c<int, 0, 0, 0, 1, 0, 0, 0> uA;
-typedef mpl::vector_c<int, 0, 0, 0, 0, 1, 0, 0> uCd;
-typedef mpl::vector_c<int, 0, 0, 0, 0, 0, 1, 0> uSrad;
-typedef mpl::vector_c<int, 0, 0, 0, 0, 0, 0, 1> uK;
+typedef mpl::vector_c<int, 1, 0, 0, 0, 0, 0, 0> METER;
+typedef mpl::vector_c<int, 0, 1, 0, 0, 0, 0, 0> KILOGRAM;
+typedef mpl::vector_c<int, 0, 0, 1, 0, 0, 0, 0> SECOND;
+typedef mpl::vector_c<int, 0, 0, 0, 1, 0, 0, 0> AMPERE;
+typedef mpl::vector_c<int, 0, 0, 0, 0, 1, 0, 0> CANDELA;
+typedef mpl::vector_c<int, 0, 0, 0, 0, 0, 1, 0> SRAD;
+typedef mpl::vector_c<int, 0, 0, 0, 0, 0, 0, 1> KELVIN;
 
 template <typename U>
 struct unit_name {
@@ -52,10 +52,11 @@ struct unit_name {
         EXTRACT_EXPONENT(4);
         EXTRACT_EXPONENT(5);
         EXTRACT_EXPONENT(6);
-#define FORMAT_UNIT(USYM, UNAME)                \
-    if (USYM) {                                 \
-        s << #UNAME;                            \
-        if (USYM != 1) s << "^" << USYM << " "; \
+#define FORMAT_UNIT(USYM, UNAME)         \
+    if (USYM) {                          \
+        s << #UNAME;                     \
+        if (USYM != 1) s << "^" << USYM; \
+        s << " ";                        \
     }
         FORMAT_UNIT(U0, m);
         FORMAT_UNIT(U1, kg);
@@ -78,35 +79,16 @@ struct divide_units {
     typedef typename mpl::transform<U1, U2, make_lambda<minus>>::type type;
 };
 
-// Unit prototypes contain a unit and know their name.
-
-template <typename U>
-struct unit_proto {
-    typedef U type;
-    std::string sym;
-    unit_proto(void) : sym(unit_name<U>().name()) {}
-    unit_proto(const std::string& sym) : sym(sym) {}
-};
-
-static const unit_proto<uM> meter;
-static const unit_proto<uKg> kilogram;
-static const unit_proto<uS> second;
-static const unit_proto<uA> ampere;
-static const unit_proto<uCd> candela;
-static const unit_proto<uSrad> sterad;
-static const unit_proto<uK> kelvin;
-
 // Quantity
 
 template <typename N, typename U>
 struct quantity {
     N value;
-    unit_proto<U> unit;
 
     // quantity(const quantity<N,U>& other) : value(other.value),
     // unit(other.unit) {} const quantity<N,U>& operator=(const quantity<N,U>&
     // other) { value = other.value; unit = other.unit; }
-    quantity(N val, unit_proto<U> un) : value(val), unit(un) {}
+    quantity(N val) : value(val) {}
     operator std::string(void) {
         std::ostringstream o;
         o << value << " " << unit_name<U>().name();
@@ -117,25 +99,17 @@ struct quantity {
     quantity<typename std::common_type<N, N2>::type, U> operator+(
         const quantity<N2, U>& other) {
         auto q = quantity<typename std::common_type<N, N2>::type, U>(
-            value + other.value, unit);
+            value + other.value);
         return q;
     }
 
     template <typename N2, typename U2>
     quantity<typename std::common_type<N, N2>::type,
              typename multiply_units<U, U2>::type>
-    operator*(const quantity<N2, U2>& other) {
+    operator*(const quantity<N2, U2>& other) const {
         typedef typename multiply_units<U, U2>::type resultunit;
         auto q = quantity<typename std::common_type<N, N2>::type, resultunit>(
-            value * other.value, unit_proto<resultunit>());
-        return q;
-    }
-
-    template <typename N2>
-    quantity<typename std::common_type<N, N2>::type, U> operator*(
-        const N2& other) {
-        auto q = quantity<typename std::common_type<N, N2>::type, U>(
-            value * other, unit_proto<U>());
+            value * other.value);
         return q;
     }
 
@@ -145,21 +119,40 @@ struct quantity {
     operator/(const quantity<N2, U2>& other) {
         typedef typename divide_units<U, U2>::type resultunit;
         auto q = quantity<typename std::common_type<N, N2>::type, resultunit>(
-            value / other.value, unit_proto<resultunit>());
+            value / other.value);
         return q;
     }
 };
 
-template <typename N, typename U>
-quantity<N, U> make_quant(N val, unit_proto<U> unit_pt) {
-    quantity<N, U> q(val, unit_pt);
+// Scalar multiplication
+template <typename N1, typename N2, typename U,
+          std::enable_if_t<std::is_arithmetic<N1>::value, int> = 0>
+quantity<typename std::common_type<N1, N2>::type, U> operator*(
+    const quantity<N2, U>& second, const N1& first) {
+    auto q = quantity<typename std::common_type<N1, N2>::type, U>(second.value *
+                                                                  first);
     return q;
 }
+template <typename N1, typename N2, typename U,
+          std::enable_if_t<std::is_arithmetic<N1>::value, int> = 0>
+quantity<typename std::common_type<N1, N2>::type, U> operator*(
+    const N1& first, const quantity<N2, U>& second) {
+    return second * first;
+}
+
+static const quantity<int, METER> meter(1);
+static const quantity<int, SECOND> second(1);
+static const quantity<int, KILOGRAM> kilogram(1);
+static const quantity<int, AMPERE> ampere(1);
+static const quantity<int, CANDELA> candela(1);
+static const quantity<int, SRAD> srad(1);
+static const quantity<int, KELVIN> kelvin(1);
 
 int main(void) {
-    auto x = make_quant(33.0f, second);
-    auto y = make_quant(30.0f, meter);
-    auto z = (x * x) / (x * y * 4.5);
+    auto force = 1 * kilogram * meter / (second * second);
+    auto x = 13.2 * force;
+    auto y = 2.3;
+    auto z = (x * x) / (x * y);
     std::cout << std::string(z) << std::endl;
     return 0;
 }
