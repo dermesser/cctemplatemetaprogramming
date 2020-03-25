@@ -1,4 +1,5 @@
 project("CTMP")
+#set(CMAKE_CXX_COMPILER clang++)
 cmake_minimum_required(VERSION 3.16)
 add_compile_options(-std=c++17)
 

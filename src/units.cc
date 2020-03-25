@@ -1,4 +1,6 @@
 #include <boost/mpl/at.hpp>
+#include <boost/static_assert.hpp>
+#include <boost/mpl/equal.hpp>
 #include <boost/mpl/int.hpp>
 #include <boost/mpl/plus.hpp>
 #include <boost/mpl/transform.hpp>
@@ -93,7 +95,7 @@ struct invert_units {
 
 // Quantity
 
-template <typename N, typename U>
+template <typename N, typename U, std::enable_if_t<std::is_arithmetic<N>::value, int> = 0>
 struct quantity {
     N value;
 
@@ -101,6 +103,10 @@ struct quantity {
     // unit(other.unit) {} const quantity<N,U>& operator=(const quantity<N,U>&
     // other) { value = other.value; unit = other.unit; }
     quantity(N val) : value(val) {}
+    template<typename U2>
+    quantity(const quantity<N, U2>& other) : value(other.value) {
+        BOOST_STATIC_ASSERT(mpl::equal<U, U2>::type::value);
+    }
     operator std::string(void) {
         std::ostringstream o;
         o << value << " " << unit_name<U>().name();
@@ -109,7 +115,7 @@ struct quantity {
 
     template <typename N2>
     quantity<typename std::common_type<N, N2>::type, U> operator+(
-        const quantity<N2, U>& other) {
+        const quantity<N2, U>& other) const {
         auto q = quantity<typename std::common_type<N, N2>::type, U>(
             value + other.value);
         return q;
@@ -128,7 +134,7 @@ struct quantity {
     template <typename N2, typename U2>
     quantity<typename std::common_type<N, N2>::type,
              typename divide_units<U, U2>::type>
-    operator/(const quantity<N2, U2>& other) {
+    operator/(const quantity<N2, U2>& other) const {
         typedef typename divide_units<U, U2>::type resultunit;
         auto q = quantity<typename std::common_type<N, N2>::type, resultunit>(
             value / other.value);
@@ -155,7 +161,7 @@ quantity<typename std::common_type<N1, N2>::type, U> operator*(
 template <typename N1, typename N2, typename U,
           typename std::enable_if<std::is_arithmetic<N1>::value, int>::type = 0>
 quantity<typename std::common_type<N1, N2>::type, U> operator/(
-    const quantity<N1, U>& first, const N2& second) {
+    quantity<N1, U> first, N2 second) {
     auto q = quantity<typename std::common_type<N1, N2>::type, U>(first.value /
                                                                   second);
     return q;
@@ -164,7 +170,7 @@ template <typename N1, typename N2, typename U,
           typename std::enable_if<std::is_arithmetic<N1>::value, int>::type = 0>
 quantity<typename std::common_type<N1, N2>::type,
          typename mpl::transform<U, make_lambda<negate>>::type>
-operator/(const N1& first, const quantity<N2, U>& second) {
+operator/(N1 first, quantity<N2, U> second) {
     typedef typename mpl::transform<U, make_lambda<negate>>::type inverted;
     return quantity<typename std::common_type<N1, N2>::type, inverted>(
         first / second.value);
@@ -178,12 +184,11 @@ static const quantity<int, CANDELA> candela(1);
 static const quantity<int, SRAD> srad(1);
 static const quantity<int, KELVIN> kelvin(1);
 
+static const quantity<int, divide_units<multiply_units<KILOGRAM, METER>::type, multiply_units<SECOND, SECOND>::type>::type> newton(1);
+
 int main(void) {
-    auto force = 1 * kilogram * meter / (second * second);
-    auto x = 1 / force;
-    auto y = 2.3 / x;
-    auto z = y;
-    std::cout << std::string(z) << std::endl;
+    auto force = 1 * kilogram * meter / (second*second);
+    std::cout << std::string(4 * newton + force) << std::endl;
     return 0;
 }
 
