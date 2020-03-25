@@ -22,6 +22,13 @@ struct minus {
         A1::value - A2::value>::type type;
 };
 
+template <typename A1>
+struct negate {
+    typedef typename mpl::integral_c<
+        typename std::make_signed<decltype(A1::value)>::type, -A1::value>::type
+        type;
+};
+
 /// `quote`
 template <template <typename A1, typename... Rest> typename Op>
 struct make_lambda {
@@ -79,6 +86,11 @@ struct divide_units {
     typedef typename mpl::transform<U1, U2, make_lambda<minus>>::type type;
 };
 
+template <typename U>
+struct invert_units {
+    typedef typename mpl::transform<U, make_lambda<negate>>::type type;
+};
+
 // Quantity
 
 template <typename N, typename U>
@@ -124,9 +136,9 @@ struct quantity {
     }
 };
 
-// Scalar multiplication
+// Scalar multiplication/division
 template <typename N1, typename N2, typename U,
-          std::enable_if_t<std::is_arithmetic<N1>::value, int> = 0>
+          typename std::enable_if<std::is_arithmetic<N1>::value, int>::type = 0>
 quantity<typename std::common_type<N1, N2>::type, U> operator*(
     const quantity<N2, U>& second, const N1& first) {
     auto q = quantity<typename std::common_type<N1, N2>::type, U>(second.value *
@@ -134,10 +146,28 @@ quantity<typename std::common_type<N1, N2>::type, U> operator*(
     return q;
 }
 template <typename N1, typename N2, typename U,
-          std::enable_if_t<std::is_arithmetic<N1>::value, int> = 0>
+          typename std::enable_if<std::is_arithmetic<N1>::value, int>::type = 0>
 quantity<typename std::common_type<N1, N2>::type, U> operator*(
     const N1& first, const quantity<N2, U>& second) {
     return second * first;
+}
+
+template <typename N1, typename N2, typename U,
+          typename std::enable_if<std::is_arithmetic<N1>::value, int>::type = 0>
+quantity<typename std::common_type<N1, N2>::type, U> operator/(
+    const quantity<N1, U>& first, const N2& second) {
+    auto q = quantity<typename std::common_type<N1, N2>::type, U>(first.value /
+                                                                  second);
+    return q;
+}
+template <typename N1, typename N2, typename U,
+          typename std::enable_if<std::is_arithmetic<N1>::value, int>::type = 0>
+quantity<typename std::common_type<N1, N2>::type,
+         typename mpl::transform<U, make_lambda<negate>>::type>
+operator/(const N1& first, const quantity<N2, U>& second) {
+    typedef typename mpl::transform<U, make_lambda<negate>>::type inverted;
+    return quantity<typename std::common_type<N1, N2>::type, inverted>(
+        first / second.value);
 }
 
 static const quantity<int, METER> meter(1);
@@ -150,9 +180,9 @@ static const quantity<int, KELVIN> kelvin(1);
 
 int main(void) {
     auto force = 1 * kilogram * meter / (second * second);
-    auto x = 13.2 * force;
-    auto y = 2.3;
-    auto z = (x * x) / (x * y);
+    auto x = 1 / force;
+    auto y = 2.3 / x;
+    auto z = y;
     std::cout << std::string(z) << std::endl;
     return 0;
 }
