@@ -7,3 +7,5 @@ add_executable(example src/example.cc)
 add_executable(binary src/binary.cc)
 
 add_executable(replace_type src/replace_type.cc)
+
+add_executable(fac src/fac.cc)

@@ -1,40 +1,77 @@
 #include <iostream>
-
-class C {};
+#include <type_traits>
 
 template<typename C, typename X, typename Y>
 struct replace_type {
     typedef C type;
 };
 
+// Simple replacement.
 template<typename X, typename Y>
-struct replace_type<X*, X, Y> {
-    typedef Y* type;
+struct replace_type<X, X, Y> {
+    typedef Y type;
 };
 
-template<typename X, typename Y>
-struct replace_type<X&, X, Y> {
-    typedef Y& type;
+namespace {
+    // For pointer/reference types, if C* == X, replace, otherwise continue replacing.
+    template<bool is_same, typename C, typename X, typename Y>
+    struct replace_type_ptr_helper {
+        typedef Y type;
+    };
+    template<typename C, typename X, typename Y>
+    struct replace_type_ptr_helper<true, C*, X, Y> {
+        typedef Y type;
+    };
+    template<typename C, typename X, typename Y>
+    struct replace_type_ptr_helper<false, C*, X, Y> {
+        typedef typename replace_type<C, X, Y>::type* type;
+    };
+    template<typename C, typename X, typename Y>
+    struct replace_type_ptr_helper<true, C&, X, Y> {
+        typedef Y type;
+    };
+    template<typename C, typename X, typename Y>
+    struct replace_type_ptr_helper<false, C&, X, Y> {
+        typedef typename replace_type<C, X, Y>::type& type;
+    };
+    template<typename C, typename X, typename Y>
+    struct replace_type_ptr_helper<true, C&&, X, Y> {
+        typedef Y type;
+    };
+    template<typename C, typename X, typename Y>
+    struct replace_type_ptr_helper<false, C&&, X, Y> {
+        typedef typename replace_type<C, X, Y>::type&& type;
+    };
+}
+
+template<typename C, typename X, typename Y>
+struct replace_type<C*, X, Y> {
+    typedef typename replace_type_ptr_helper<std::is_same<C*, X>::value, C*, X, Y>::type type;
 };
 
-template<typename R, typename X, typename Y>
-struct replace_type<R (*)(X), X, Y> {
-    typedef R (*type)(Y);
+template<typename C, typename X, typename Y>
+struct replace_type<C&, X, Y> {
+    typedef typename replace_type_ptr_helper<std::is_same<C&, X>::value, C&, X, Y>::type type;
 };
 
-template<typename X, typename Y>
-struct replace_type<X (*)(X), X, Y> {
-    typedef Y (*type)(Y);
+template<typename C, typename X, typename Y>
+struct replace_type<C&&, X, Y> {
+    typedef typename replace_type_ptr_helper<std::is_same<C&&, X>::value, C&&, X, Y>::type type;
 };
 
-template<typename A, typename X, typename Y>
-struct replace_type<X (*)(A), X, Y> {
-    typedef Y (*type)(A);
+template<typename C, typename X, typename Y>
+struct replace_type<const C, X, Y> {
+    typedef const typename replace_type_ptr_helper<std::is_same<const C, X>::value, const C, X, Y>::type type;
+};
+
+template<typename R, typename A, typename X, typename Y>
+struct replace_type<R (*)(A), X, Y> {
+    typedef typename replace_type<R, X, Y>::type (*type)(typename replace_type<A, X, Y>::type);
 };
 
 int main(void) {
-    typedef char& (*typ)(char& a);
+    typedef const long long* typ;
     std::cout << typeid(typ).name() << std::endl;
-    std::cout << typeid(replace_type<typ, unsigned, unsigned>::type).name() << std::endl;
+    std::cout << typeid(replace_type<typ, long long, unsigned>::type).name() << std::endl;
     return 0;
 }
