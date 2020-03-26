@@ -80,7 +80,7 @@ struct unit_name {
 
 template <typename U1, typename U2>
 struct multiply_units {
-    typedef typename mpl::transform<U1, U2, make_lambda<plus>>::type type;
+    typedef typename mpl::transform<U1, U2, plus<mpl::_1, mpl::_2>>::type type;
 };
 
 template <typename U1, typename U2>
