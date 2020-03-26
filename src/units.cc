@@ -187,7 +187,8 @@ static const quantity<int, KELVIN> kelvin(1);
 static const quantity<int, divide_units<multiply_units<KILOGRAM, METER>::type, multiply_units<SECOND, SECOND>::type>::type> newton(1);
 
 int main(void) {
-    auto force = 1 * kilogram * meter / (second*second);
+    auto force = 1 * kilogram * meter / second * 1/ second + newton;
+
     std::cout << std::string(4 * newton + force) << std::endl;
     return 0;
 }
