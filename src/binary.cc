@@ -1,8 +1,10 @@
 #include <iostream>
+#include <boost/static_assert.hpp>
 
 template<unsigned long In>
 struct binary {
     static const unsigned long value = binary<In/10>::value * 2 + In%10;
+    BOOST_STATIC_ASSERT(In%10 < 2);
 };
 
 template<>
